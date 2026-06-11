@@ -44,7 +44,6 @@
 #   NODE_MAX_DISK         Node disk limit MB (default: 40960)
 #   ALLOC_PORT_START      First game port (default: 25565)
 #   ALLOC_PORT_END        Last game port (default: 25575)
-#   PMA_USER              phpMyAdmin HTTP auth user (default: admin)
 #   DBHOST_USER           Database host user (default: pterodactyluser)
 #   CREDENTIALS_FILE      Output path (default: /root/pterodactyl-credentials.txt)
 
@@ -75,7 +74,6 @@ INSTALL_PHPMYADMIN="${INSTALL_PHPMYADMIN:-yes}"
 SETUP_DATABASE_HOST="${SETUP_DATABASE_HOST:-yes}"
 INSTALL_SWAP="${INSTALL_SWAP:-yes}"
 SWAP_SIZE="${SWAP_SIZE:-2G}"
-PMA_USER="${PMA_USER:-admin}"
 DBHOST_USER="${DBHOST_USER:-pterodactyluser}"
 NODE_NAME="${NODE_NAME:-Main Node}"
 NODE_LOCATION_SHORT="${NODE_LOCATION_SHORT:-node1}"
@@ -538,20 +536,14 @@ $cfg['Servers'][$i]['AllowNoPassword'] = false;
 $cfg['Servers'][$i]['AllowRoot'] = true;
 PHP
 
-    printf '%s:%s\n' "$PMA_USER" "$(openssl passwd -apr1 "$PASSWORD")" > /etc/nginx/.phpmyadmin
-    chmod 640 /etc/nginx/.phpmyadmin
-    chown root:www-data /etc/nginx/.phpmyadmin
+    rm -f /etc/nginx/.phpmyadmin
 
     cat > /etc/nginx/snippets/phpmyadmin.conf <<NGINX
 location ^~ /phpmyadmin {
-    auth_basic "phpMyAdmin";
-    auth_basic_user_file /etc/nginx/.phpmyadmin;
     root /usr/share/;
     index index.php index.html;
 
     location ~ ^/phpmyadmin/(.+\.php)$ {
-        auth_basic "phpMyAdmin";
-        auth_basic_user_file /etc/nginx/.phpmyadmin;
         root /usr/share/;
         fastcgi_pass unix:${php_fpm_sock};
         fastcgi_index index.php;
@@ -560,8 +552,6 @@ location ^~ /phpmyadmin {
     }
 
     location ~* ^/phpmyadmin/(.+\.(jpg|jpeg|gif|css|png|js|ico|html|xml|txt))$ {
-        auth_basic "phpMyAdmin";
-        auth_basic_user_file /etc/nginx/.phpmyadmin;
         root /usr/share/;
     }
 }
@@ -639,8 +629,6 @@ EOF
         cat >> "$CREDENTIALS_FILE" <<EOF
 
 phpMyAdmin: ${scheme}://${FQDN}/phpmyadmin
-  HTTP User:  ${PMA_USER}
-  HTTP Pass:  ${PASSWORD}
   MariaDB:    root / ${PASSWORD}
 EOF
     fi

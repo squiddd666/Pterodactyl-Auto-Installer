@@ -10,7 +10,7 @@ Automated bash installer for [Pterodactyl Panel](https://pterodactyl.io/) + [Win
 - Node, Wings config, and port allocations
 - Community Minecraft eggs (Fabric, NeoForge, Paper, Bedrock, proxies, and more)
 - Optional test Minecraft server
-- phpMyAdmin (HTTP auth + MariaDB root login)
+- phpMyAdmin (MariaDB root login)
 - Pterodactyl database host for server databases
 - Optional 2 GB swap file
 
@@ -140,7 +140,6 @@ Use `sudo -E` so your exported variables are passed through to the script.
 | `NODE_MAX_DISK` | `40960` | Node disk limit (MB) |
 | `ALLOC_PORT_START` | `25565` | First game port |
 | `ALLOC_PORT_END` | `25575` | Last game port |
-| `PMA_USER` | `admin` | phpMyAdmin HTTP auth username |
 | `DBHOST_USER` | `pterodactyluser` | Database host MariaDB user |
 | `CREDENTIALS_FILE` | `/root/pterodactyl-credentials.txt` | Where credentials are saved |
 
