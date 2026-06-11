@@ -16,15 +16,72 @@ Automated bash installer for [Pterodactyl Panel](https://pterodactyl.io/) + [Win
 
 All services share one unified password unless you set `PASSWORD` yourself.
 
-## Requirements
+## System requirements
 
-- Fresh Ubuntu 22.04, 24.04, or 26.04 VPS (x86_64)
-- Root access (`sudo`)
-- At least ~2 GB RAM recommended
-- A domain pointed at the server (optional; IP works, but Let's Encrypt needs a domain)
-- Open cloud firewall ports after install: **22**, **80**, **443**, **8080**, **2022**, and your game ports (default **25565–25575**)
+Use a **fresh VPS** for the smoothest install. The script is designed for a clean Ubuntu server with no prior Pterodactyl, web stack, or database setup.
 
-> **Note:** Do not run this on a server that already has Pterodactyl installed at `/var/www/pterodactyl`. The script will abort if it detects an existing install.
+### Operating system
+
+| Requirement | Details |
+|-------------|---------|
+| **Distro** | Ubuntu **22.04**, **24.04**, or **26.04** LTS |
+| **Architecture** | **x86_64** (amd64) |
+| **Install type** | Fresh VPS or dedicated server (not a shared hosting panel) |
+
+Other Debian-based distros are **not** officially supported.
+
+### Hardware
+
+| Resource | Minimum | Recommended | Notes |
+|----------|---------|-------------|-------|
+| **CPU** | 1 vCPU | 2+ vCPUs | More cores help when running game servers via Docker |
+| **RAM** | 2 GB | **4 GB+** | Panel + Wings + MariaDB + Redis + Docker need ~1.5 GB idle; add RAM for each game server |
+| **Disk** | 10 GB free | **20 GB+** free | Panel stack uses ~3–5 GB; each Minecraft server can use several GB more |
+| **Swap** | — | Optional | Script can create a **2 GB swap file** by default (`INSTALL_SWAP=yes`) — useful on 2 GB VMs |
+
+**Rough RAM guide (with default options):**
+
+- Panel only (no test server): **2 GB** can work with swap enabled
+- Panel + test Minecraft server (1 GB RAM): **4 GB** recommended
+- Multiple game servers: scale RAM by each server's allocation
+
+### Access & network
+
+| Requirement | Details |
+|-------------|---------|
+| **Privileges** | Root or passwordless `sudo` |
+| **Outbound internet** | Required — downloads packages, Pterodactyl, Wings, Docker, and Minecraft eggs |
+| **Inbound ports** | Open in your **cloud firewall** after install (UFW is configured on the server, but GCP/AWS/Azure firewalls are separate) |
+
+**Ports to open:**
+
+| Port | Service |
+|------|---------|
+| **22** | SSH |
+| **80** | HTTP (panel, phpMyAdmin) |
+| **443** | HTTPS (if `CONFIGURE_SSL=yes`) |
+| **8080** | Wings API |
+| **2022** | Wings SFTP |
+| **25565–25575** | Game servers (default allocation range; adjust if you change `ALLOC_PORT_START` / `ALLOC_PORT_END`) |
+
+### Domain & SSL (optional)
+
+| Setup | Works? |
+|-------|--------|
+| **Public IP only** | Yes — panel at `http://YOUR_IP` (no Let's Encrypt) |
+| **Domain name** | Yes — set `FQDN=panel.example.com` |
+| **Let's Encrypt** | Requires a **valid domain** pointing to the server; set `CONFIGURE_SSL=yes` |
+
+### Before you run
+
+- **Do not** run on a server that already has Pterodactyl at `/var/www/pterodactyl` — the script will abort
+- **Do not** run on a server with an existing web stack (Apache/Nginx + MySQL) unless you know what you're doing
+- **Recommended:** new Ubuntu VPS from your provider (GCP, AWS, Hetzner, OVH, etc.)
+- **Install time:** ~3–5 minutes on a typical VPS with a good connection
+
+### Tested environment
+
+Verified on **Ubuntu 26.04 LTS** (x86_64) on Google Cloud with a 2 vCPU / 2 GB RAM instance. Fresh installs complete end-to-end without manual steps.
 
 ## Quick start
 
