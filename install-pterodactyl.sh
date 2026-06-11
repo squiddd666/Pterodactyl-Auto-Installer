@@ -129,6 +129,27 @@ if [[ -d /var/www/pterodactyl ]]; then
     die "Pterodactyl already installed at /var/www/pterodactyl. Aborting."
 fi
 
+# Leftover MariaDB data survives apt purge and breaks password sync on reinstall.
+if [[ -d /var/lib/mariadb ]] && [[ -n "$(ls -A /var/lib/mariadb 2>/dev/null)" ]]; then
+    reset_mariadb=0
+    if ! mariadb -u root -e "SELECT 1" &>/dev/null; then
+        reset_mariadb=1
+    elif mariadb -u root -Nse "SHOW DATABASES LIKE 'panel'" 2>/dev/null | grep -qx panel; then
+        reset_mariadb=1
+    fi
+    if [[ "$reset_mariadb" -eq 1 ]]; then
+        warn "Removing stale MariaDB data from a previous install."
+        systemctl stop mariadb 2>/dev/null || true
+        rm -rf /var/lib/mariadb
+        if dpkg -l mariadb-server &>/dev/null; then
+            mkdir -p /var/lib/mariadb
+            chown mysql:mysql /var/lib/mariadb
+            sudo -u mysql mariadb-install-db --datadir=/var/lib/mariadb --auth-root-authentication-method=socket
+            systemctl start mariadb
+        fi
+    fi
+fi
+
 if ! command -v curl &>/dev/null; then
     apt-get update -qq
     apt-get install -y -qq curl ca-certificates
@@ -180,11 +201,27 @@ run_installer() {
         echo "$firewall_ans"
         echo "n"                 # Wings DB host user (we configure ourselves)
         echo "$ssl_ans"
+        echo "$FQDN"             # FQDN prompt (shown even when SSL is disabled)
         echo "y"                 # Confirm wings
     } | bash <(curl -sSL "$INSTALLER_URL") 2>&1 | tee -a "$LOG_FILE"
 
     [[ -d /var/www/pterodactyl ]] || die "Panel install failed. See $LOG_FILE"
     ok "Panel and Wings installed."
+}
+
+sync_panel_env() {
+    log "Syncing panel .env with installer settings..."
+
+    local env="/var/www/pterodactyl/.env"
+    [[ -f "$env" ]] || die "Panel .env not found."
+
+    sed -i "s|^DB_PASSWORD=.*|DB_PASSWORD=\"${PASSWORD}\"|" "$env"
+    sed -i "s|^APP_URL=.*|APP_URL=\"http://${FQDN}\"|" "$env"
+    [[ "$CONFIGURE_SSL" == "yes" ]] && sed -i "s|^APP_URL=.*|APP_URL=\"https://${FQDN}\"|" "$env"
+
+    cd /var/www/pterodactyl
+    grep -q '^APP_KEY=.\+' "$env" || php artisan key:generate --force
+    ok "Panel .env synced."
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -390,6 +427,10 @@ ALTER USER 'root'@'localhost' IDENTIFIED BY '${PASSWORD}';
 CREATE USER IF NOT EXISTS 'root'@'127.0.0.1' IDENTIFIED BY '${PASSWORD}';
 GRANT ALL PRIVILEGES ON *.* TO 'root'@'127.0.0.1' WITH GRANT OPTION;
 ALTER USER 'pterodactyl'@'127.0.0.1' IDENTIFIED BY '${PASSWORD}';
+CREATE USER IF NOT EXISTS 'pterodactyl'@'localhost' IDENTIFIED BY '${PASSWORD}';
+ALTER USER 'pterodactyl'@'localhost' IDENTIFIED BY '${PASSWORD}';
+GRANT ALL PRIVILEGES ON panel.* TO 'pterodactyl'@'127.0.0.1';
+GRANT ALL PRIVILEGES ON panel.* TO 'pterodactyl'@'localhost';
 CREATE USER IF NOT EXISTS '${DBHOST_USER}'@'127.0.0.1' IDENTIFIED BY '${PASSWORD}';
 GRANT ALL PRIVILEGES ON *.* TO '${DBHOST_USER}'@'127.0.0.1' WITH GRANT OPTION;
 FLUSH PRIVILEGES;
@@ -635,10 +676,11 @@ main() {
     echo
 
     run_installer
+    sync_panel_env
+    setup_mariadb_users
     setup_node
     import_minecraft_eggs
     create_test_server
-    setup_mariadb_users
     setup_database_host
     setup_phpmyadmin
     setup_swap
