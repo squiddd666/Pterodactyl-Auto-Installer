@@ -459,7 +459,13 @@ phpmyadmin phpmyadmin/dbconfig-install boolean false
 phpmyadmin phpmyadmin/reconfigure-webserver multiselect
 EOF
 
-    apt-get install -y -qq phpmyadmin php-mbstring php-zip php-gd apache2-utils
+    apt-get install -y -qq --no-install-recommends phpmyadmin php-mbstring php-zip php-gd
+
+    # phpMyAdmin is served by nginx + PHP-FPM; Apache conflicts on port 80.
+    if dpkg -l apache2 &>/dev/null; then
+        systemctl disable --now apache2 2>/dev/null || true
+        apt-get remove -y -qq apache2 libapache2-mod-php8.5 libapache2-mod-php8.4 libapache2-mod-php8.3 2>/dev/null || true
+    fi
 
     local php_fpm_sock blowfish
     php_fpm_sock=$(find /run/php -name 'php*-fpm.sock' 2>/dev/null | sort -V | tail -1)
@@ -481,7 +487,7 @@ $cfg['Servers'][$i]['AllowNoPassword'] = false;
 $cfg['Servers'][$i]['AllowRoot'] = true;
 PHP
 
-    htpasswd -cb /etc/nginx/.phpmyadmin "$PMA_USER" "$PASSWORD"
+    printf '%s:%s\n' "$PMA_USER" "$(openssl passwd -apr1 "$PASSWORD")" > /etc/nginx/.phpmyadmin
     chmod 640 /etc/nginx/.phpmyadmin
     chown root:www-data /etc/nginx/.phpmyadmin
 
