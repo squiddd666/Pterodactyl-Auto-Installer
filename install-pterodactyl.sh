@@ -264,9 +264,11 @@ setup_node() {
     php artisan p:node:configuration 1 --format=yaml > /etc/pterodactyl/config.yml
     chmod 600 /etc/pterodactyl/config.yml
 
+    # Bind 0.0.0.0 so Docker listens on all interfaces (required on GCP/AWS
+    # where the public IP is NAT'd and not assigned to a local interface).
     php artisan tinker --execute="
         for (\$port = ${ALLOC_PORT_START}; \$port <= ${ALLOC_PORT_END}; \$port++) {
-            \Pterodactyl\Models\Allocation::create(['node_id' => 1, 'ip' => '${FQDN}', 'port' => \$port]);
+            \Pterodactyl\Models\Allocation::create(['node_id' => 1, 'ip' => '0.0.0.0', 'port' => \$port]);
         }
         echo \Pterodactyl\Models\Allocation::where('node_id', 1)->count() . ' allocations';
     "
@@ -376,6 +378,9 @@ use Pterodactyl\Services\Servers\ServerCreationService;
 
 \$env = [];
 foreach (\$egg->variables as \$v) { \$env[\$v->env_variable] = \$v->default_value; }
+\$mcVersion = getenv('TEST_SERVER_MINECRAFT_VERSION') ?: '1.21.4';
+\$env['MINECRAFT_VERSION'] = \$mcVersion;
+\$env['BUILD_NUMBER'] = 'latest';
 \$images = \$egg->docker_images;
 \$image = \$images['Java 21'] ?? \$images['Java 17'] ?? array_values(\$images)[0];
 
