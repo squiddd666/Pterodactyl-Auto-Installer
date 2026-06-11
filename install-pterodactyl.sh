@@ -268,7 +268,12 @@ setup_node() {
     # where the public IP is NAT'd and not assigned to a local interface).
     php artisan tinker --execute="
         for (\$port = ${ALLOC_PORT_START}; \$port <= ${ALLOC_PORT_END}; \$port++) {
-            \Pterodactyl\Models\Allocation::create(['node_id' => 1, 'ip' => '0.0.0.0', 'port' => \$port]);
+            \Pterodactyl\Models\Allocation::create([
+                'node_id' => 1,
+                'ip' => '0.0.0.0',
+                'ip_alias' => '${FQDN}',
+                'port' => \$port,
+            ]);
         }
         echo \Pterodactyl\Models\Allocation::where('node_id', 1)->count() . ' allocations';
     "
